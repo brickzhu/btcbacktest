@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+.env
+
+# Node
+node_modules/
+package-lock.json
+
+# OpenClaw
+.openclaw/
+
+# 敏感数据
+MEMORY.md
+memory/
+
+# 临时文件
+*.log
+*.tmp
+.DS_Store
+
+# 图表生成
+generate_chart.js
+generate_png.js
+chart.py
+pnl_chart.png
+pnl_chart.svg
+
+# 五子棋相关
+gomoku_*.py
+gomoku_bot.sh
+
+# 其他
+scripts/
+self-care-reboot/
