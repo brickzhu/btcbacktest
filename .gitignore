@@ -24,6 +24,36 @@ memory/
 *.tmp
 .DS_Store
 
+# 工作区文件（非策略）
+AGENTS.md
+HEARTBEAT.md
+IDENTITY.md
+SOUL.md
+TOOLS.md
+USER.md
+BOOTSTRAP.md
+archive/
+package.json
+
+# 旧版/临时回测
+diagnose_bearish.py
+leverage_risk_analysis.py
+yearly_analysis.py
+orderblock_14atr_fixed_backtest.py
+orderblock_atr*.csv
+orderblock_adjusted_trades.csv
+orderblock_analysis.csv
+orderblock_filter_results.csv
+orderblock_results.csv
+orderblock_output.txt
+orderblock_merged_trades.csv
+orderblock_merged_v1_trades.csv
+orderblock_fvg_threshold_compare.csv
+orderblock_merged_threshold_scan*.csv
+orderblock_rr2_3y_trades.csv
+orderblock_std_analysis.csv
+trades_2026.csv
+
 # 图表生成
 generate_chart.js
 generate_png.js

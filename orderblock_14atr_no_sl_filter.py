@@ -139,11 +139,20 @@ def identify_order_blocks(df):
 
 def simulate_trades(df, order_blocks, rr_ratio, leverage=10):
     trades = []
+    # 按时间排序，确保顺序处理（同一时刻只能持一个仓）
+    order_blocks = sorted(order_blocks, key=lambda x: x['index'])
+    last_exit_idx = -1  # 上一笔交易出场的K线索引
+    
     for ob in order_blocks:
         ob_idx, ob_type = ob['index'], ob['type']
         entry_price, stop_loss = ob['entry_price'], ob['stop_loss']
         risk = abs(entry_price - stop_loss)
         take_profit = entry_price + (risk * rr_ratio) if ob_type == 'bullish' else entry_price - (risk * rr_ratio)
+        
+        # 风险过滤（提前检查）
+        risk_pct = risk / entry_price * 100
+        if RISK_PCT_MAX is not None and risk_pct > RISK_PCT_MAX:
+            continue
         
         if MAX_LOSS_PCT is not None:
             price_move_pct = MAX_LOSS_PCT / leverage / 100
@@ -154,14 +163,18 @@ def simulate_trades(df, order_blocks, rr_ratio, leverage=10):
         else:
             hard_stop = None
         
+        # 入场扫描：从OB形成后 或 上一笔出场后 开始（取较晚者）
+        scan_start = max(ob_idx + 3, last_exit_idx + 1)
         entered, entry_idx = False, None
-        for i in range(ob_idx + 3, min(ob_idx + 3 + RETEST_LIMIT, len(df))):
+        for i in range(scan_start, min(ob_idx + 3 + RETEST_LIMIT, len(df))):
             if df.iloc[i]['low'] <= entry_price <= df.iloc[i]['high']:
                 entered, entry_idx = True, i
                 break
         if not entered: continue
         
         entry_candle = df.iloc[entry_idx]
+        exit_idx = entry_idx  # 默认出场在入场K线
+        
         if ob_type == 'bullish':
             actual_sl = min(stop_loss, hard_stop) if hard_stop else stop_loss
             sl_hit, tp_hit = entry_candle['low'] <= actual_sl, entry_candle['high'] >= take_profit
@@ -182,21 +195,19 @@ def simulate_trades(df, order_blocks, rr_ratio, leverage=10):
                 candle = df.iloc[i]
                 if ob_type == 'bullish':
                     actual_sl = min(stop_loss, hard_stop) if hard_stop else stop_loss
-                    if candle['low'] <= actual_sl: result, exit_price = 'loss', actual_sl; break
-                    if candle['high'] >= take_profit: result, exit_price = 'win', take_profit; break
+                    if candle['low'] <= actual_sl: result, exit_price, exit_idx = 'loss', actual_sl, i; break
+                    if candle['high'] >= take_profit: result, exit_price, exit_idx = 'win', take_profit, i; break
                 else:
                     actual_sl = max(stop_loss, hard_stop) if hard_stop else stop_loss
-                    if candle['high'] >= actual_sl: result, exit_price = 'loss', actual_sl; break
-                    if candle['low'] <= take_profit: result, exit_price = 'win', take_profit; break
+                    if candle['high'] >= actual_sl: result, exit_price, exit_idx = 'loss', actual_sl, i; break
+                    if candle['low'] <= take_profit: result, exit_price, exit_idx = 'win', take_profit, i; break
             if result is None:
-                exit_price = df.iloc[-1]['close']
-                result = 'win' if (ob_type == 'bullish' and exit_price > entry_price) or (ob_type == 'bearish' and exit_price < entry_price) else 'loss'
+                # 数据结尾未完成的交易，丢弃不计入统计
+                continue
         
         pnl_pct = ((exit_price - entry_price) / entry_price if ob_type == 'bullish' else (entry_price - exit_price) / entry_price) - FEE_RATE * 2
-        risk_pct = risk / entry_price * 100
         
-        if RISK_PCT_MAX is not None and risk_pct > RISK_PCT_MAX:
-            continue
+        last_exit_idx = exit_idx  # 更新出场位置，下一笔必须在此之后才能入场
         
         trades.append({
             'timestamp': ob['timestamp'],
